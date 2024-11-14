@@ -21,10 +21,10 @@ openai.api_key= os.getenv("OPENAI_API_KEY")
 # pytesseract.pytesseract.tesseract_cmd = r'/path/to/tesseract'
 
 # Folder containing PDF invoices
-INVOICE_FOLDER = '/Users/mohamedmentis/Downloads/factures-2024-4/2404/'  # Replace with the path to your folder
+invoice_folder = os.getenv("INVOICE_FOLDER")' 
 
 # Output folder for XML and Excel files
-OUTPUT_FOLDER = './Output'  # Replace with your desired output folder
+output_folder = os.getenv("OUTPUT_FOLDER")  
 
 def get_pdf_files(folder_path):
     pdf_files = [
