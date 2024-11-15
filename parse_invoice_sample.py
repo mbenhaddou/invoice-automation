@@ -192,7 +192,7 @@ def process_invoice(pdf_file, output_folder):
 
     return {"message": "Processing successful", "data": data}
 
-#Define /upload endpoint
+# Define /upload endpoint
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -228,6 +228,12 @@ def upload_file():
     os.remove(file_path)  # Remove file after processing if no longer needed
 
     return jsonify({"message": result})
+
+# Define /health endpoint to verify the application's status
+# Returns JSON with corresponding message and status code 200 if the application is running
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "message": "Application is running!"}), 200
 
 if __name__ == '__main__':
     # Ensure output folder exists
