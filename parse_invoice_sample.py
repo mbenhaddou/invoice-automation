@@ -1,3 +1,4 @@
+import mimetypes
 import os
 import fitz  # PyMuPDF
 import pytesseract
@@ -10,11 +11,14 @@ import re
 import logging
 import time
 from dotenv import load_dotenv
+from flask import Flask, app, request, jsonify
 
 load_dotenv()
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
+# Initialize Flask app
+app = Flask(__name__)
 
 openai.api_key= os.getenv("OPENAI_API_KEY")
 # If Tesseract is not in your PATH, specify the full path to the executable
@@ -155,7 +159,70 @@ def process_invoices(folder_path, output_folder):
     else:
         logging.warning("No data extracted from any invoices.")
 
+# Processing a single invoice (used for /upload endpoint)
+def process_invoice(pdf_file, output_folder):
+    logging.info(f"Processing single file {pdf_file}...")
+   
+    text = extract_text(pdf_file)
+    if not text.strip():
+        logging.warning(f"Failed to extract text from {pdf_file}. Skipping.")
+        return {"error": f"Failed to extract text from {pdf_file}"}
+
+    data = extract_information_with_gpt(text)
+    if not data:
+        logging.warning(f"Failed to extract information from {pdf_file}. Skipping.")
+        return {"error": f"Failed to extract information from {pdf_file}"}
+
+    # Prepare output paths
+    base_filename = os.path.splitext(os.path.basename(pdf_file))[0]
+    xml_output_path = os.path.join(output_folder, f"{base_filename}.xml")
+    excel_output_path = os.path.join(output_folder, 'invoices_summary.xlsx')
+
+    # Save XML per invoice
+    generate_xml(data, xml_output_path)
+    logging.info(f"XML saved to {xml_output_path}")
+
+    # Add filename to data for reference
+    data['Fichier'] = base_filename
+
+    # Generate Excel summary (just for this invoice)
+    all_data = [data]
+    generate_excel(all_data, excel_output_path)
+    logging.info(f"Excel summary saved to {excel_output_path}")
+
+    return {"message": "Processing successful", "data": data}
+
+#Define /upload endpoint
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "Missing file input"}), 400
+    
+    file = request.files['file']
+    filename = file.filename
+    mime_type, _ = mimetypes.guess_type(filename)
+    if filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    if (mime_type != "application/pdf"):
+        return jsonify({"error": "Input type is not recognised"}), 400
+    
+    # Save the file temporarily
+    file_path = os.path.join('uploads', file.filename)
+    os.makedirs('uploads', exist_ok=True)
+    file.save(file_path)
+    logging.info(f"File saved to: {file_path}")
+    
+    # Process the file
+    result = process_invoice(file_path, output_folder)
+    
+    # Clean up (optional)
+    os.remove(file_path)  # Remove file after processing if no longer needed
+
+    return jsonify({"message": result})
+
 if __name__ == '__main__':
     # Ensure output folder exists
     os.makedirs(output_folder, exist_ok=True)
-    process_invoices(invoice_folder, output_folder)
+    # Run Flask app in development mode
+    app.run(debug=True, host="0.0.0.0", port=5000)
+    
