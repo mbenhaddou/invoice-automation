@@ -198,7 +198,16 @@ def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "Missing file input"}), 400
     
-    file = request.files['file']
+    # Get all files in the request
+    files = request.files.getlist('file')
+
+    # Check if there is more than one file
+    if len(files) > 1:
+        logging.error(f"Multiple files uploaded: {[file.filename for file in files]}")
+        return jsonify({"error": "Only one pdf file is allowed as input"}), 400
+
+    # Process the single file
+    file = files[0]
     filename = file.filename
     mime_type, _ = mimetypes.guess_type(filename)
     if filename == '':
